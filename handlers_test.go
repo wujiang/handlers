@@ -78,16 +78,17 @@ func TestWriteLog(t *testing.T) {
 		panic(err)
 	}
 	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
+	du := time.Duration(1000000)
 
 	// A typical request with an OK response
 	req := newRequest("GET", "http://example.com")
 	req.RemoteAddr = "192.168.100.5"
 
 	buf := new(bytes.Buffer)
-	writeLog(buf, req, ts, http.StatusOK, 100)
+	writeLog(buf, req, ts, http.StatusOK, 100, du)
 	log := buf.String()
 
-	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100\n"
+	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 1000\n"
 	if log != expected {
 		t.Fatalf("wrong log, got %q want %q", log, expected)
 	}
@@ -98,10 +99,10 @@ func TestWriteLog(t *testing.T) {
 	req.URL.User = url.User("kamil")
 
 	buf.Reset()
-	writeLog(buf, req, ts, http.StatusUnauthorized, 500)
+	writeLog(buf, req, ts, http.StatusUnauthorized, 500, du)
 	log = buf.String()
 
-	expected = "192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 401 500\n"
+	expected = "192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 401 500 1000\n"
 	if log != expected {
 		t.Fatalf("wrong log, got %q want %q", log, expected)
 	}
@@ -111,10 +112,10 @@ func TestWriteLog(t *testing.T) {
 	req.RemoteAddr = "192.168.100.5"
 
 	buf.Reset()
-	writeLog(buf, req, ts, http.StatusOK, 100)
+	writeLog(buf, req, ts, http.StatusOK, 100, du)
 	log = buf.String()
 
-	expected = "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET /test?abc=hello%20world&a=b%3F HTTP/1.1\" 200 100\n"
+	expected = "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET /test?abc=hello%20world&a=b%3F HTTP/1.1\" 200 100 1000\n"
 	if log != expected {
 		t.Fatalf("wrong log, got %q want %q", log, expected)
 	}
@@ -126,6 +127,7 @@ func TestWriteCombinedLog(t *testing.T) {
 		panic(err)
 	}
 	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
+	du := time.Duration(1000000)
 
 	// A typical request with an OK response
 	req := newRequest("GET", "http://example.com")
@@ -138,10 +140,10 @@ func TestWriteCombinedLog(t *testing.T) {
 	)
 
 	buf := new(bytes.Buffer)
-	writeCombinedLog(buf, req, ts, http.StatusOK, 100)
+	writeCombinedLog(buf, req, ts, http.StatusOK, 100, du)
 	log := buf.String()
 
-	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 \"http://example.com\" " +
+	expected := "192.168.100.5 - - [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 1000 \"http://example.com\" " +
 		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
 		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
 	if log != expected {
@@ -152,10 +154,10 @@ func TestWriteCombinedLog(t *testing.T) {
 	req.URL.User = url.User("kamil")
 
 	buf.Reset()
-	writeCombinedLog(buf, req, ts, http.StatusUnauthorized, 500)
+	writeCombinedLog(buf, req, ts, http.StatusUnauthorized, 500, du)
 	log = buf.String()
 
-	expected = "192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 401 500 \"http://example.com\" " +
+	expected = "192.168.100.5 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 401 500 1000 \"http://example.com\" " +
 		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
 		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
 	if log != expected {
@@ -166,10 +168,10 @@ func TestWriteCombinedLog(t *testing.T) {
 	req.RemoteAddr = "::1"
 
 	buf.Reset()
-	writeCombinedLog(buf, req, ts, http.StatusOK, 100)
+	writeCombinedLog(buf, req, ts, http.StatusOK, 100, du)
 	log = buf.String()
 
-	expected = "::1 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 \"http://example.com\" " +
+	expected = "::1 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 1000 \"http://example.com\" " +
 		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
 		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
 	if log != expected {
@@ -180,10 +182,10 @@ func TestWriteCombinedLog(t *testing.T) {
 	req.RemoteAddr = net.JoinHostPort("::1", "65000")
 
 	buf.Reset()
-	writeCombinedLog(buf, req, ts, http.StatusOK, 100)
+	writeCombinedLog(buf, req, ts, http.StatusOK, 100, du)
 	log = buf.String()
 
-	expected = "::1 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 \"http://example.com\" " +
+	expected = "::1 - kamil [26/May/1983:03:30:45 +0200] \"GET / HTTP/1.1\" 200 100 1000 \"http://example.com\" " +
 		"\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) " +
 		"AppleWebKit/537.33 (KHTML, like Gecko) Chrome/27.0.1430.0 Safari/537.33\"\n"
 	if log != expected {
@@ -197,6 +199,7 @@ func BenchmarkWriteLog(b *testing.B) {
 		b.Fatalf(err.Error())
 	}
 	ts := time.Date(1983, 05, 26, 3, 30, 45, 0, loc)
+	du := time.Duration(1000000)
 
 	req := newRequest("GET", "http://example.com")
 	req.RemoteAddr = "192.168.100.5"
@@ -206,6 +209,6 @@ func BenchmarkWriteLog(b *testing.B) {
 	buf := &bytes.Buffer{}
 	for i := 0; i < b.N; i++ {
 		buf.Reset()
-		writeLog(buf, req, ts, http.StatusUnauthorized, 500)
+		writeLog(buf, req, ts, http.StatusUnauthorized, 500, du)
 	}
 }

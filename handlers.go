@@ -69,8 +69,10 @@ func (h loggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	} else {
 		logger = &responseLogger{w: w}
 	}
+	startTime := time.Now()
 	h.handler.ServeHTTP(logger, req)
-	writeLog(h.writer, req, t, logger.Status(), logger.Size())
+	duration := time.Since(startTime)
+	writeLog(h.writer, req, t, logger.Status(), logger.Size(), duration)
 }
 
 func (h combinedLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -81,8 +83,10 @@ func (h combinedLoggingHandler) ServeHTTP(w http.ResponseWriter, req *http.Reque
 	} else {
 		logger = &responseLogger{w: w}
 	}
+	startTime := time.Now()
 	h.handler.ServeHTTP(logger, req)
-	writeCombinedLog(h.writer, req, t, logger.Status(), logger.Size())
+	duration := time.Since(startTime)
+	writeCombinedLog(h.writer, req, t, logger.Status(), logger.Size(), duration)
 }
 
 type loggingResponseWriter interface {
@@ -210,7 +214,8 @@ func appendQuoted(buf []byte, s string) []byte {
 // buildCommonLogLine builds a log entry for req in Apache Common Log Format.
 // ts is the timestamp with which the entry should be logged.
 // status and size are used to provide the response HTTP status and size.
-func buildCommonLogLine(req *http.Request, ts time.Time, status int, size int) []byte {
+func buildCommonLogLine(req *http.Request, ts time.Time, status int, size int,
+	du time.Duration) []byte {
 	username := "-"
 	if req.URL.User != nil {
 		if name := req.URL.User.Username(); name != "" {
@@ -225,6 +230,8 @@ func buildCommonLogLine(req *http.Request, ts time.Time, status int, size int) [
 	}
 
 	uri := req.URL.RequestURI()
+
+	duration := int64(du / time.Microsecond) // in microsecond
 
 	buf := make([]byte, 0, 3*(len(host)+len(username)+len(req.Method)+len(uri)+len(req.Proto)+50)/2)
 	buf = append(buf, host...)
@@ -242,14 +249,17 @@ func buildCommonLogLine(req *http.Request, ts time.Time, status int, size int) [
 	buf = append(buf, strconv.Itoa(status)...)
 	buf = append(buf, " "...)
 	buf = append(buf, strconv.Itoa(size)...)
+	buf = append(buf, " "...)
+	buf = append(buf, strconv.FormatInt(duration, 10)...)
 	return buf
 }
 
 // writeLog writes a log entry for req to w in Apache Common Log Format.
 // ts is the timestamp with which the entry should be logged.
 // status and size are used to provide the response HTTP status and size.
-func writeLog(w io.Writer, req *http.Request, ts time.Time, status, size int) {
-	buf := buildCommonLogLine(req, ts, status, size)
+func writeLog(w io.Writer, req *http.Request, ts time.Time, status, size int,
+	du time.Duration) {
+	buf := buildCommonLogLine(req, ts, status, size, du)
 	buf = append(buf, '\n')
 	w.Write(buf)
 }
@@ -257,8 +267,9 @@ func writeLog(w io.Writer, req *http.Request, ts time.Time, status, size int) {
 // writeCombinedLog writes a log entry for req to w in Apache Combined Log Format.
 // ts is the timestamp with which the entry should be logged.
 // status and size are used to provide the response HTTP status and size.
-func writeCombinedLog(w io.Writer, req *http.Request, ts time.Time, status, size int) {
-	buf := buildCommonLogLine(req, ts, status, size)
+func writeCombinedLog(w io.Writer, req *http.Request, ts time.Time, status, size int,
+	du time.Duration) {
+	buf := buildCommonLogLine(req, ts, status, size, du)
 	buf = append(buf, ` "`...)
 	buf = appendQuoted(buf, req.Referer())
 	buf = append(buf, `" "`...)
